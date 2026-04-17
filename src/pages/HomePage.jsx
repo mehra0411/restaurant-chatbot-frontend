@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
-import { api } from "../api/client";
+import { useCallback } from "react";
 import RestaurantLanding from "../components/RestaurantLanding";
 import ChatWidget from "../components/ChatWidget";
+import { usePublicRestaurantData } from "../hooks/usePublicRestaurantData";
 
 const DEFAULT_SETTINGS = {
   name: "Meridian",
@@ -20,44 +20,19 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function HomePage() {
-  const [settings, setSettings] = useState(null);
-  const [menu, setMenu] = useState({ categories: [], uncategorized: [] });
-  const [menuError, setMenuError] = useState(null);
-
-  const load = useCallback(async () => {
-    setMenuError(null);
-    try {
-      const [sRes, mRes] = await Promise.all([
-        api.get("/api/public/settings"),
-        api.get("/api/public/menu"),
-      ]);
-      setSettings(sRes.data);
-      setMenu(mRes.data || { categories: [], uncategorized: [] });
-    } catch (e) {
-      setMenuError(e.response?.data?.error || e.message);
-      setSettings(null);
-      setMenu({ categories: [], uncategorized: [] });
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { settings, menu, menuError } = usePublicRestaurantData();
 
   const mergedSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
 
-  const openChat = () => {
-    window.dispatchEvent(new CustomEvent("open-restaurant-chat"));
-  };
+  const openChat = useCallback((panel) => {
+    window.dispatchEvent(
+      new CustomEvent("open-restaurant-chat", { detail: { panel } })
+    );
+  }, []);
 
   return (
     <div className="min-h-full bg-slate-50 font-sans">
-      <RestaurantLanding
-        settings={mergedSettings}
-        menu={menu}
-        menuError={menuError}
-        onOpenChat={openChat}
-      />
+      <RestaurantLanding settings={mergedSettings} onOpenChat={openChat} />
       <ChatWidget
         restaurantName={mergedSettings.name}
         websiteUrl={mergedSettings.website_url}
@@ -65,6 +40,8 @@ export default function HomePage() {
         phone={mergedSettings.phone}
         instagramUrl={mergedSettings.instagram_url}
         facebookUrl={mergedSettings.facebook_url}
+        menu={menu}
+        menuError={menuError}
       />
     </div>
   );

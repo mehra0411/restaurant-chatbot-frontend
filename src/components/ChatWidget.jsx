@@ -1,7 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "../api/client";
-import { newId, formatTime, SUGGESTIONS } from "../utils/chat";
+import {
+  newId,
+  formatTime,
+  SUGGESTIONS,
+  CHAT_PANEL_ACTIONS,
+} from "../utils/chat";
+import {
+  ChatBookTableForm,
+  ChatOrderForm,
+  ChatMenuPanel,
+} from "./ChatGuestPanels";
 import { ChatBubbleIcon, PaperPlaneIcon } from "./Icons";
+
+const PANEL_TITLES = {
+  book: "Book a table",
+  order: "Send an order",
+  menu: "Menu",
+};
 
 function absUrl(url) {
   const u = (url || "").trim();
@@ -67,8 +83,13 @@ export default function ChatWidget({
   phone,
   instagramUrl,
   facebookUrl,
+  menu = { categories: [], uncategorized: [] },
+  menuError = null,
+  /** When true (iframe /embed): fill the frame, open chat by default, easier to see. */
+  embed = false,
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(() => Boolean(embed));
+  const [guestPanel, setGuestPanel] = useState(null);
   const [msg, setMsg] = useState("");
   const [chat, setChat] = useState([]);
   const [apiError, setApiError] = useState("");
@@ -93,6 +114,7 @@ export default function ChatWidget({
     const text = msg.trim();
     if (!text || loading) return;
 
+    setGuestPanel(null);
     const id = newId();
     const createdAt = new Date();
 
@@ -148,12 +170,20 @@ export default function ChatWidget({
 
   const toggleOpen = () => {
     setIsOpen((o) => !o);
-    if (isOpen) setApiError("");
+    if (isOpen) {
+      setApiError("");
+      setGuestPanel(null);
+    }
   };
 
-  const openChat = useCallback(() => {
+  const openChat = useCallback((panel) => {
     setIsOpen(true);
     setApiError("");
+    if (panel === "book" || panel === "order" || panel === "menu") {
+      setGuestPanel(panel);
+    } else {
+      setGuestPanel(null);
+    }
   }, []);
 
   const markBotRevealDone = useCallback((messageId) => {
@@ -171,11 +201,20 @@ export default function ChatWidget({
   const tel = (phone || "").trim();
   const hasQuickLinks = Boolean(web || map || tel || ig || fb);
 
+  const shellClass = embed
+    ? "pointer-events-auto fixed inset-0 z-50 flex flex-col bg-slate-100 p-2 sm:p-3"
+    : "pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 sm:bottom-8 sm:right-8";
+
+  /* No enter animation in embed mode — avoids rare stuck opacity:0 in iframes. */
+  const panelClass = embed
+    ? "pointer-events-auto flex h-full min-h-[300px] w-full max-w-lg flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:mx-auto sm:max-h-[min(44rem,calc(100vh-1.5rem))]"
+    : "pointer-events-auto flex max-h-[min(42rem,calc(100vh-5rem))] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:w-96 animate-fade-up";
+
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 sm:bottom-8 sm:right-8">
+    <div className={shellClass}>
       {isOpen ? (
         <div
-          className="pointer-events-auto flex max-h-[min(34rem,calc(100vh-8rem))] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:w-96 animate-fade-up"
+          className={panelClass}
           role="dialog"
           aria-label={`Chat with ${restaurantName}`}
         >
@@ -190,7 +229,7 @@ export default function ChatWidget({
               type="button"
               onClick={() => setIsOpen(false)}
               className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-              aria-label="Close chat"
+              aria-label={embed ? "Minimize chat" : "Close chat"}
             >
               <svg
                 className="h-5 w-5"
@@ -258,26 +297,88 @@ export default function ChatWidget({
                   Facebook
                 </a>
               ) : null}
-              <a
-                href="#reserve"
-                className="ml-auto text-violet-300 hover:text-violet-100 hover:underline"
-              >
-                Book table
-              </a>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+                <button
+                  type="button"
+                  onClick={() => setGuestPanel("menu")}
+                  className="text-violet-300 hover:text-violet-100 hover:underline"
+                >
+                  Menu
+                </button>
+                <span className="text-slate-600" aria-hidden>
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGuestPanel("book")}
+                  className="text-violet-300 hover:text-violet-100 hover:underline"
+                >
+                  Book
+                </button>
+                <span className="text-slate-600" aria-hidden>
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGuestPanel("order")}
+                  className="text-violet-300 hover:text-violet-100 hover:underline"
+                >
+                  Order
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-2 text-right text-[11px]">
-              <a
-                href="#reserve"
+            <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 border-b border-slate-800 bg-slate-900 px-4 py-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setGuestPanel("menu")}
                 className="font-medium text-violet-300 hover:text-violet-100 hover:underline"
               >
-                Book a table →
-              </a>
+                Menu
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuestPanel("book")}
+                className="font-medium text-violet-300 hover:text-violet-100 hover:underline"
+              >
+                Book a table
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuestPanel("order")}
+                className="font-medium text-violet-300 hover:text-violet-100 hover:underline"
+              >
+                Order
+              </button>
             </div>
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/90 px-3 py-3">
-            {chat.length === 0 && !loading ? (
+            {guestPanel ? (
+              <div className="flex min-h-0 flex-col gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGuestPanel(null)}
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
+                    ← Chat
+                  </button>
+                  <span className="text-sm font-semibold text-slate-800">
+                    {PANEL_TITLES[guestPanel]}
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+                  {guestPanel === "book" ? <ChatBookTableForm /> : null}
+                  {guestPanel === "order" ? <ChatOrderForm /> : null}
+                  {guestPanel === "menu" ? (
+                    <ChatMenuPanel menu={menu} menuError={menuError} />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {!guestPanel && chat.length === 0 && !loading ? (
               <div className="rounded-2xl bg-white p-6 text-center shadow-lg shadow-slate-200/50 ring-1 ring-slate-100">
                 <div
                   className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-blue-500 bg-blue-50 text-3xl"
@@ -286,12 +387,22 @@ export default function ChatWidget({
                   👋
                 </div>
                 <p className="text-base font-bold leading-snug text-slate-800">
-                  Hi there! 👋 Need help with our menu, hours, or a reservation?
+                  Hi there! 👋 Menu, reservations, and orders live here.
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                  Let&apos;s chat and find what you need.
+                  Pick an option below or ask the AI anything.
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
+                  {CHAT_PANEL_ACTIONS.map(({ label, panel }) => (
+                    <button
+                      key={panel}
+                      type="button"
+                      onClick={() => setGuestPanel(panel)}
+                      className="rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-left text-xs font-semibold text-violet-900 transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                    >
+                      {label}
+                    </button>
+                  ))}
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
@@ -306,57 +417,59 @@ export default function ChatWidget({
               </div>
             ) : null}
 
-            <div className="space-y-4 pt-1">
-              {chat.map((c) => (
-                <div key={c.id} className="space-y-3">
-                  <div className="flex flex-col items-end gap-1">
-                    <time className="text-[10px] text-slate-400">
-                      {c.createdAt ? formatTime(c.createdAt) : ""}
-                    </time>
-                    <div className="max-w-[90%] rounded-2xl rounded-tr-md bg-violet-600 px-3.5 py-2.5 text-sm leading-relaxed text-white shadow-sm">
-                      {c.user}
+            {!guestPanel ? (
+              <div className="space-y-4 pt-1">
+                {chat.map((c) => (
+                  <div key={c.id} className="space-y-3">
+                    <div className="flex flex-col items-end gap-1">
+                      <time className="text-[10px] text-slate-400">
+                        {c.createdAt ? formatTime(c.createdAt) : ""}
+                      </time>
+                      <div className="max-w-[90%] rounded-2xl rounded-tr-md bg-violet-600 px-3.5 py-2.5 text-sm leading-relaxed text-white shadow-sm">
+                        {c.user}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-start gap-1">
+                      <time className="text-[10px] text-slate-400">
+                        {c.repliedAt ? formatTime(c.repliedAt) : ""}
+                      </time>
+                      {c.bot != null ? (
+                        <div className="max-w-[95%] rounded-2xl rounded-tl-md bg-gray-100 px-3.5 py-2.5 text-sm leading-relaxed text-slate-700">
+                          <div className="break-words">
+                            {c.botRevealDone ? (
+                              <span className="whitespace-pre-wrap">{c.bot}</span>
+                            ) : (
+                              <TypewriterBotReply
+                                fullText={c.bot}
+                                onComplete={() => markBotRevealDone(c.id)}
+                                onTick={scrollChatToBottom}
+                              />
+                            )}
+                          </div>
+                          {!c.botRevealDone ? (
+                            <span
+                              className="ml-0.5 inline-block h-3 w-0.5 animate-pulse bg-violet-500/80 align-middle"
+                              aria-hidden
+                            />
+                          ) : null}
+                        </div>
+                      ) : loading ? (
+                        <div
+                          className="inline-flex items-center gap-1 rounded-2xl rounded-tl-md bg-gray-100 px-4 py-3"
+                          aria-live="polite"
+                          aria-label="Assistant is typing"
+                        >
+                          <span className="h-2 w-2 animate-typing rounded-full bg-slate-400" />
+                          <span className="h-2 w-2 animate-typing rounded-full bg-slate-400 animation-delay-150" />
+                          <span className="h-2 w-2 animate-typing rounded-full bg-slate-400 animation-delay-300" />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-
-                  <div className="flex flex-col items-start gap-1">
-                    <time className="text-[10px] text-slate-400">
-                      {c.repliedAt ? formatTime(c.repliedAt) : ""}
-                    </time>
-                    {c.bot != null ? (
-                      <div className="max-w-[95%] rounded-2xl rounded-tl-md bg-gray-100 px-3.5 py-2.5 text-sm leading-relaxed text-slate-700">
-                        <div className="break-words">
-                          {c.botRevealDone ? (
-                            <span className="whitespace-pre-wrap">{c.bot}</span>
-                          ) : (
-                            <TypewriterBotReply
-                              fullText={c.bot}
-                              onComplete={() => markBotRevealDone(c.id)}
-                              onTick={scrollChatToBottom}
-                            />
-                          )}
-                        </div>
-                        {!c.botRevealDone ? (
-                          <span
-                            className="ml-0.5 inline-block h-3 w-0.5 animate-pulse bg-violet-500/80 align-middle"
-                            aria-hidden
-                          />
-                        ) : null}
-                      </div>
-                    ) : loading ? (
-                      <div
-                        className="inline-flex items-center gap-1 rounded-2xl rounded-tl-md bg-gray-100 px-4 py-3"
-                        aria-live="polite"
-                        aria-label="Assistant is typing"
-                      >
-                        <span className="h-2 w-2 animate-typing rounded-full bg-slate-400" />
-                        <span className="h-2 w-2 animate-typing rounded-full bg-slate-400 animation-delay-150" />
-                        <span className="h-2 w-2 animate-typing rounded-full bg-slate-400 animation-delay-300" />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : null}
 
             <div ref={listEndRef} className="h-1" />
           </div>
@@ -398,23 +511,31 @@ export default function ChatWidget({
         </div>
       ) : null}
 
-      <div className="pointer-events-auto flex items-center gap-3">
-        <button
-          type="button"
-          onClick={toggleOpen}
-          className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/80 transition hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+      {!isOpen ? (
+        <div
+          className={
+            embed
+              ? "pointer-events-auto flex flex-1 flex-col items-center justify-center gap-4 py-8"
+              : "pointer-events-auto flex items-center gap-3"
+          }
         >
-          Chat with us
-        </button>
-        <button
-          type="button"
-          onClick={toggleOpen}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-violet-600 text-white shadow-xl shadow-violet-600/30 transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-          aria-label={isOpen ? "Close chat" : "Open chat"}
-        >
-          <ChatBubbleIcon className="h-7 w-7" />
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={toggleOpen}
+            className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/80 transition hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          >
+            Chat with us
+          </button>
+          <button
+            type="button"
+            onClick={toggleOpen}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-violet-600 text-white shadow-xl shadow-violet-600/30 transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+            aria-label="Open chat"
+          >
+            <ChatBubbleIcon className="h-7 w-7" />
+          </button>
+        </div>
+      ) : null}
 
       {/* Allow parent landing buttons to open chat */}
       <OpenChatBridge onOpen={openChat} />
@@ -422,10 +543,10 @@ export default function ChatWidget({
   );
 }
 
-/** Dispatches custom event from landing CTAs */
+/** Dispatches `open-restaurant-chat` with optional `detail.panel`: book | order | menu */
 function OpenChatBridge({ onOpen }) {
   useEffect(() => {
-    const h = () => onOpen();
+    const h = (e) => onOpen(e.detail?.panel);
     window.addEventListener("open-restaurant-chat", h);
     return () => window.removeEventListener("open-restaurant-chat", h);
   }, [onOpen]);

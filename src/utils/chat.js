@@ -7,8 +7,15 @@ export function formatTime(d) {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+/** Opens a panel inside the chat widget (menu, book, order). */
+export const CHAT_PANEL_ACTIONS = [
+  { label: "View our menu", panel: "menu" },
+  { label: "Book a table", panel: "book" },
+  { label: "Send an order request", panel: "order" },
+];
+
+/** Fills the composer — sent to the AI as a normal message. */
 export const SUGGESTIONS = [
-  "What's on the menu tonight?",
   "What are your hours and location?",
-  "How do I book a table for Saturday?",
+  "What do you recommend for a celebration?",
 ];
