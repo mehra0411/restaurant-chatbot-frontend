@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { ChatBubbleIcon } from "./Icons";
+import { useMemo } from "react";
 
 const IMG_HERO =
   "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=2000&q=80";
@@ -458,8 +459,9 @@ export default function RestaurantLanding({
   const phone = (settings?.phone || "").trim();
   const instagram = (settings?.instagram_url || "").trim();
   const facebook = (settings?.facebook_url || "").trim();
-
-  const categories = menu?.categories || [];
+  const categories = useMemo(() => {
+    return menu?.categories || [];
+  }, [menu]);
   const uncategorized = menu?.uncategorized || [];
   const hasMenuItems =
     categories.some((c) => c.items?.length) || uncategorized.length > 0;
