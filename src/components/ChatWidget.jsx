@@ -223,7 +223,7 @@ export default function ChatWidget({
               <h2 className="text-base font-semibold tracking-tight">
                 {restaurantName}
               </h2>
-              <p className="text-xs text-slate-400">AI Assistant</p>
+              <p className="text-xs text-slate-400">Assistant</p>
             </div>
             <button
               type="button"
